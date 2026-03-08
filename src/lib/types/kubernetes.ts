@@ -1117,3 +1117,14 @@ export interface FluxKustomizationInfo {
   last_applied_revision: string | null;
   created_at: string | null;
 }
+
+export interface CustomResourceInstance {
+  name: string;
+  namespace: string | null;
+  uid: string;
+  created_at: string | null;
+  labels: Record<string, string>;
+  annotations: Record<string, string>;
+  spec: Record<string, unknown> | null;
+  status: Record<string, unknown> | null;
+}

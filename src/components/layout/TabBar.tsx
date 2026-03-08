@@ -440,7 +440,7 @@ export function TabBar() {
                 onCloseToRight={() => requestCloseTabsToRight(tab.id)}
                 isLast={index === tabs.length - 1}
                 onMiddleClick={(e) => handleMouseDown(e, tab)}
-                title={tab.type === "pod-logs" ? tab.title : getTabTitle(tab.type)}
+                title={tab.type === "pod-logs" || tab.type === "custom-resource" ? tab.title : getTabTitle(tab.type)}
                 tClose={t("close")}
                 tCloseOthers={t("closeOthers")}
                 tCloseToRight={t("closeToRight")}

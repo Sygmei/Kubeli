@@ -5,6 +5,7 @@ import { useLogStore } from "./log-store";
 export interface TabMetadata {
   namespace?: string;
   podName?: string;
+  customResource?: { group: string; version: string; kind: string; plural: string; scope: string; };
 }
 
 export interface Tab {
@@ -24,7 +25,7 @@ interface TabsState {
   closeOtherTabs: (id: string) => void;
   closeTabsToRight: (id: string) => void;
   setActiveTab: (id: string) => void;
-  navigateCurrentTab: (type: ResourceType, title: string) => void;
+  navigateCurrentTab: (type: ResourceType, title: string, metadata?: TabMetadata) => void;
   reorderTabs: (activeId: string, overId: string) => void;
   restoreTabs: (clusterContext: string) => void;
   resetTabs: () => void;
@@ -172,10 +173,10 @@ export const useTabsStore = create<TabsState>((set, get) => {
       }
     },
 
-    navigateCurrentTab: (type, title) => {
+    navigateCurrentTab: (type, title, metadata?) => {
       const { tabs, activeTabId } = get();
       const newTabs = tabs.map((t) =>
-        t.id === activeTabId ? { ...t, type, title } : t
+        t.id === activeTabId ? { ...t, type, title, ...(metadata && { metadata }) } : t
       );
       set({ tabs: newTabs });
       persistTabs(newTabs, activeTabId);

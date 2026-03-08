@@ -65,6 +65,8 @@ import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import { getNamespaceColor } from "@/lib/utils/colors";
 import { Kbd } from "@/components/ui/kbd";
+import { CustomResourcesSection } from "@/components/features/sidebar/CustomResourcesSection";
+import { useCRDs } from "@/lib/hooks/k8s";
 
 export type ResourceType =
   // Cluster
@@ -121,7 +123,8 @@ export type ResourceType =
   | "mutating-webhooks"
   | "validating-webhooks"
   // Special views
-  | "pod-logs";
+  | "pod-logs"
+  | "custom-resource";
 
 interface NavItem {
   id: ResourceType;
@@ -181,6 +184,7 @@ const implementedViews: ResourceType[] = [
   "validating-webhooks",
   "helm-releases",
   "flux-kustomizations",
+  "custom-resource",
 ];
 
 // Hook to get translated navigation sections
@@ -320,6 +324,7 @@ export function Sidebar({ activeResource, onResourceSelect, onResourceSelectNewT
 
   const { setSettingsOpen } = useUIStore();
   const { forwards, stopForward } = usePortForward();
+  const { data: crdData, isLoading: crdLoading } = useCRDs({ autoRefresh: false });
   const { getFavorites, removeFavorite, getRecentResources } =
     useFavoritesStore();
   const [namespaceOpen, setNamespaceOpen] = useState(false);
@@ -649,6 +654,13 @@ export function Sidebar({ activeResource, onResourceSelect, onResourceSelectNewT
               soonLabel={tNav("soon")}
             />
           ))}
+          {isConnected && (
+            <CustomResourcesSection
+              activeResource={activeResource}
+              data={crdData}
+              isLoading={crdLoading}
+            />
+          )}
         </nav>
       </ScrollArea>
 

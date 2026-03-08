@@ -1119,7 +1119,58 @@ pub async fn get_resource_yaml(
                 created_at: secret.metadata.creation_timestamp.map(|t| t.0.to_string()),
             })
         }
-        _ => Err(format!("Unsupported resource type: {}", resource_type)),
+        _ => {
+            // Dynamic fallback: resolve via cached discovery, then fetch
+            let (ar, is_namespaced) = state
+                .k8s
+                .resolve_kind(client.clone(), &resource_type)
+                .await
+                .ok_or_else(|| format!("Unsupported resource type: {}", resource_type))?;
+
+            let api_version = ar.api_version.clone();
+            let kind = ar.kind.clone();
+
+            let obj: DynamicObject = if is_namespaced {
+                let ns = namespace.as_deref().ok_or("Namespace required")?;
+                Api::namespaced_with(client, ns, &ar)
+                    .get(&name)
+                    .await
+                    .map_err(|e| format!("Failed to get resource: {}", e))?
+            } else {
+                Api::all_with(client, &ar)
+                    .get(&name)
+                    .await
+                    .map_err(|e| format!("Failed to get resource: {}", e))?
+            };
+
+            let yaml = serde_yaml::to_string(&obj)
+                .map_err(|e| format!("Failed to serialize to YAML: {}", e))?;
+
+            let labels: HashMap<String, String> = obj
+                .metadata
+                .labels
+                .unwrap_or_default()
+                .into_iter()
+                .collect();
+            let annotations: HashMap<String, String> = obj
+                .metadata
+                .annotations
+                .unwrap_or_default()
+                .into_iter()
+                .collect();
+
+            Ok(ResourceYaml {
+                yaml,
+                api_version,
+                kind,
+                name: obj.metadata.name.unwrap_or(name),
+                namespace: obj.metadata.namespace,
+                uid: obj.metadata.uid.unwrap_or_default(),
+                labels,
+                annotations,
+                created_at: obj.metadata.creation_timestamp.map(|t| t.0.to_string()),
+            })
+        }
     }
 }
 
@@ -1254,7 +1305,27 @@ pub async fn delete_resource(
                 .await
                 .map_err(|e| format!("Failed to delete helm release: {}", e))?;
         }
-        _ => return Err(format!("Unsupported resource type: {}", resource_type)),
+        _ => {
+            // Dynamic fallback: resolve via cached discovery, then delete
+            let (ar, is_namespaced) = state
+                .k8s
+                .resolve_kind(client.clone(), &resource_type)
+                .await
+                .ok_or_else(|| format!("Unsupported resource type: {}", resource_type))?;
+
+            if is_namespaced {
+                let ns = namespace.as_deref().ok_or("Namespace required")?;
+                Api::<DynamicObject>::namespaced_with(client, ns, &ar)
+                    .delete(&name, &dp)
+                    .await
+                    .map_err(|e| format!("Failed to delete resource: {}", e))?;
+            } else {
+                Api::<DynamicObject>::all_with(client, &ar)
+                    .delete(&name, &dp)
+                    .await
+                    .map_err(|e| format!("Failed to delete resource: {}", e))?;
+            }
+        }
     }
 
     tracing::info!("Deleted {} {}", resource_type, name);

@@ -2,7 +2,6 @@
 
 import type { ResourceType } from "@/components/layout/Sidebar";
 import { ResourceDiagram } from "../../visualization";
-import { ComingSoon } from "../components";
 
 // Overview views
 import { ClusterOverview } from "./ClusterOverview";
@@ -11,6 +10,7 @@ import { WorkloadsOverview } from "./WorkloadsOverview";
 // Utility views
 import { PortForwardsView } from "./PortForwardsView";
 import { PodLogsView } from "./PodLogsView";
+
 
 // Cluster views
 import {
@@ -83,6 +83,9 @@ import {
   HelmReleasesView,
   FluxKustomizationsView,
 } from "./gitops";
+
+import { DefaultResourceView } from "./DefaultResourceView";
+
 
 interface ResourceViewProps {
   activeResource: ResourceType;
@@ -201,6 +204,6 @@ export function ResourceView({ activeResource }: ResourceViewProps) {
       return <PodLogsView />;
 
     default:
-      return <ComingSoon resource={activeResource} />;
+      return <DefaultResourceView />;
   }
 }

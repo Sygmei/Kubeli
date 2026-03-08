@@ -100,7 +100,7 @@ impl KubeConfig {
     /// Check whether a given path is the default kubeconfig source
     pub fn is_default_source(path: &str) -> bool {
         let default = Self::default_path();
-        default.as_path() == path
+        default.as_path() == std::path::Path::new(path)
     }
 
     /// Load kubeconfig from default path

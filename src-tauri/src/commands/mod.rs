@@ -1,4 +1,5 @@
 pub mod clusters;
+pub mod custom_resources;
 pub mod debug;
 pub mod flux;
 pub mod graph;

@@ -112,6 +112,7 @@
     "runtimeClasses": "Runtime Classes",
     "mutatingWebhooks": "Mutating Webhooks",
     "validatingWebhooks": "Validating Webhooks",
+    "customResources": "Custom Resources",
     "soon": "Soon"
   },
   "cluster": {

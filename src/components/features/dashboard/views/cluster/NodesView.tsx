@@ -64,6 +64,7 @@ export function NodesView() {
       onRefresh={refresh}
       getRowKey={(node) => node.uid}
       emptyMessage={t("empty.nodes")}
+      onRowClick={(node) => openResourceDetail("node", node.name)}
       contextMenuItems={getNodeContextMenu}
       sortKey={sortKey}
       sortDirection={sortDirection}

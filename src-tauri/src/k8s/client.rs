@@ -7,8 +7,10 @@ use k8s_openapi::api::core::v1::Namespace;
 use kube::{
     api::ListParams,
     config::{KubeConfigOptions, Kubeconfig},
+    discovery::{ApiResource, Discovery},
     Api, Client, Config,
 };
+use std::collections::HashMap;
 use std::env;
 use std::sync::Arc;
 use std::time::Instant;
@@ -22,6 +24,9 @@ pub struct KubeClientManager {
     current_context: Arc<RwLock<Option<String>>>,
     kubeconfig: Arc<RwLock<Option<ParsedKubeConfig>>>,
     connection_log: Arc<RwLock<Option<String>>>,
+    /// Cache mapping lowercase kind/plural → (ApiResource, is_namespaced).
+    /// Populated lazily on first dynamic lookup; cleared on cluster switch.
+    discovery_cache: Arc<RwLock<HashMap<String, (ApiResource, bool)>>>,
 }
 
 #[allow(dead_code)] // Some methods may be used in future features (e.g., Resource Detail Views, Settings)
@@ -96,6 +101,7 @@ impl KubeClientManager {
             current_context: Arc::new(RwLock::new(None)),
             kubeconfig: Arc::new(RwLock::new(None)),
             connection_log: Arc::new(RwLock::new(None)),
+            discovery_cache: Arc::new(RwLock::new(HashMap::new())),
         }
     }
 
@@ -111,10 +117,11 @@ impl KubeClientManager {
             .context("Failed to infer Kubernetes configuration")?;
         let client = Client::try_from(config).context("Failed to create Kubernetes client")?;
 
-        // Store everything
+        // Store everything (clear discovery cache — new cluster, new API landscape)
         *self.kubeconfig.write().await = Some(parsed_config);
         *self.client.write().await = Some(client);
         *self.current_context.write().await = current_ctx;
+        self.discovery_cache.write().await.clear();
 
         Ok(())
     }
@@ -287,8 +294,26 @@ impl KubeClientManager {
         };
 
         *self.kubeconfig.write().await = Some(parsed_config);
-        *self.client.write().await = Some(client);
+        *self.client.write().await = Some(client.clone());
         *self.current_context.write().await = Some(context_name.to_string());
+        self.discovery_cache.write().await.clear();
+
+        // Warm the discovery cache in the background so the first click on any
+        // resource type is instant.
+        let cache_ref = Arc::clone(&self.discovery_cache);
+        tokio::spawn(async move {
+            if let Ok(discovery) = Discovery::new(client).run().await {
+                let mut cache = cache_ref.write().await;
+                for group in discovery.groups() {
+                    for (ar, caps) in group.recommended_resources() {
+                        let is_namespaced = caps.scope == kube::discovery::Scope::Namespaced;
+                        cache.insert(ar.kind.to_lowercase(), (ar.clone(), is_namespaced));
+                        cache.insert(ar.plural.to_lowercase(), (ar.clone(), is_namespaced));
+                    }
+                }
+                tracing::info!("Discovery cache warmed: {} entries", cache.len());
+            }
+        });
 
         steps.push("Client stored in manager and ready for use".into());
 
@@ -320,6 +345,42 @@ impl KubeClientManager {
             .await
             .clone()
             .ok_or_else(|| anyhow::anyhow!("Kubernetes client not initialized"))
+    }
+
+    /// Resolve a Kubernetes kind to its (ApiResource, is_namespaced) pair.
+    ///
+    /// Results are cached after the first discovery run, so only the very first
+    /// call for an unknown kind pays the cost of a full API-group scan.
+    pub async fn resolve_kind(&self, client: Client, kind: &str) -> Option<(ApiResource, bool)> {
+        let kind_lower = kind.to_lowercase();
+
+        // Fast path: cache hit
+        {
+            let cache = self.discovery_cache.read().await;
+            if let Some(entry) = cache.get(&kind_lower) {
+                return Some(entry.clone());
+            }
+        }
+
+        // Slow path: run full discovery and warm the entire cache
+        let discovery = Discovery::new(client).run().await.ok()?;
+        let mut cache = self.discovery_cache.write().await;
+        let mut result = None;
+
+        for group in discovery.groups() {
+            for (ar, caps) in group.recommended_resources() {
+                let is_namespaced = caps.scope == kube::discovery::Scope::Namespaced;
+                let key = ar.kind.to_lowercase();
+                let plural_key = ar.plural.to_lowercase();
+                cache.insert(key.clone(), (ar.clone(), is_namespaced));
+                cache.insert(plural_key, (ar.clone(), is_namespaced));
+                if key == kind_lower {
+                    result = Some((ar, is_namespaced));
+                }
+            }
+        }
+
+        result
     }
 
     /// Get the current context name

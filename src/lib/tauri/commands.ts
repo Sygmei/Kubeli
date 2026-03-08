@@ -56,6 +56,7 @@ import type {
   HelmReleaseDetail,
   HelmReleaseHistoryEntry,
   FluxKustomizationInfo,
+  CustomResourceInstance,
 } from "../types";
 
 const invoke = <T>(command: string, payload?: unknown): Promise<T> => {
@@ -906,4 +907,16 @@ export async function mcpUninstallIde(ideId: string): Promise<void> {
 
 export async function mcpGetKubeliPath(): Promise<string> {
   return invoke<string>("mcp_get_kubeli_path");
+}
+
+// Custom resource commands
+export async function listCustomResources(
+  group: string,
+  version: string,
+  kind: string,
+  plural: string,
+  scope: string,
+  namespace?: string
+): Promise<CustomResourceInstance[]> {
+  return invoke("list_custom_resources", { group, version, kind, plural, scope, namespace });
 }

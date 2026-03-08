@@ -323,6 +323,8 @@ fn main() {
             commands::flux::reconcile_flux_helmrelease,
             commands::flux::suspend_flux_helmrelease,
             commands::flux::resume_flux_helmrelease,
+            // Custom resource commands
+            commands::custom_resources::list_custom_resources,
             // Network commands
             commands::network::set_proxy_config,
             commands::network::get_proxy_config,

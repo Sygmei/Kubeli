@@ -6,6 +6,7 @@ import { Copy, Eye } from "lucide-react";
 import { toast } from "sonner";
 import { useEvents } from "@/lib/hooks/useK8sResources";
 import { ResourceList } from "../../../resources/ResourceList";
+import { useResourceDetail } from "../../context";
 import {
   eventColumns,
   translateColumns,
@@ -17,6 +18,7 @@ import type { EventInfo } from "@/lib/types";
 
 export function EventsView() {
   const t = useTranslations();
+  const { openResourceDetail } = useResourceDetail();
   const { data, isLoading, error, refresh } = useEvents({
     autoRefresh: true,
     refreshInterval: 10000,
@@ -68,6 +70,7 @@ export function EventsView() {
       getRowKey={(event) => event.uid}
       getRowNamespace={(event) => event.namespace}
       emptyMessage={t("empty.events")}
+      onRowClick={(event) => openResourceDetail("event", event.name, event.namespace)}
       contextMenuItems={getEventContextMenu}
       filterOptions={filterOptions}
       sortKey={sortKey}

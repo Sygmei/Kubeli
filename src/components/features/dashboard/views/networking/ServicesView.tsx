@@ -184,6 +184,7 @@ export function ServicesView() {
       getRowClassName={getRowClassName}
       getRowNamespace={(svc) => svc.namespace}
       emptyMessage={t("empty.services")}
+      onRowClick={(svc) => openResourceDetail("service", svc.name, svc.namespace)}
       contextMenuItems={getServiceContextMenu}
       sortKey={sortKey}
       sortDirection={sortDirection}

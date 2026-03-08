@@ -6,6 +6,7 @@ import { Copy } from "lucide-react";
 import { toast } from "sonner";
 import { useLeases } from "@/lib/hooks/useK8sResources";
 import { ResourceList } from "../../../resources/ResourceList";
+import { useResourceDetail } from "../../context";
 import {
   leaseColumns,
   translateColumns,
@@ -16,6 +17,7 @@ import type { LeaseInfo } from "@/lib/types";
 
 export function LeasesView() {
   const t = useTranslations();
+  const { openResourceDetail } = useResourceDetail();
   const { data, isLoading, error, refresh } = useLeases({
     autoRefresh: true,
     refreshInterval: 30000,
@@ -56,6 +58,7 @@ export function LeasesView() {
       getRowKey={(lease) => lease.uid}
       getRowNamespace={(lease) => lease.namespace}
       emptyMessage={t("empty.leases")}
+      onRowClick={(lease) => openResourceDetail("lease", lease.name, lease.namespace)}
       contextMenuItems={getLeaseContextMenu}
       sortKey={sortKey}
       sortDirection={sortDirection}
